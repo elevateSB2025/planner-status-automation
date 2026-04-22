@@ -1,0 +1,24 @@
+name: Planner Status Automation
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-status:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install PowerShell
+        uses: PowerShell/PowerShell@v1
+
+      - name: Run Planner Automation
+        run: pwsh ./scripts/planner.ps1
+        env:
+          TENANT_ID: ${{ secrets.TENANT_ID }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          PLAN_ID: ${{ secrets.PLAN_ID }}
+          BOSS_EMAIL: ${{ secrets.BOSS_EMAIL }}
