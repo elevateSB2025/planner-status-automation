@@ -19,3 +19,4 @@ jobs:
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
           PLAN_ID: ${{ secrets.PLAN_ID }}
           BOSS_EMAIL: ${{ secrets.BOSS_EMAIL }}
+          SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
