@@ -19,13 +19,20 @@ foreach ($task in $tasks.value) {
 }
 $html += "</ul>"
 
-# Prepare email body
+# Send email FROM the app registration TO your boss
+$fromAddress = "$($env:CLIENT_ID)@$((Invoke-RestMethod -Uri "https://login.microsoftonline.com/$env:TENANT_ID/v2.0/.well-known/openid-configuration").issuer.Split('/')[3])"
+
 $mailBody = @{
     message = @{
         subject = "Planner Status Update"
         body = @{
             contentType = "HTML"
             content     = $html
+        }
+        from = @{
+            emailAddress = @{
+                address = $fromAddress
+            }
         }
         toRecipients = @(
             @{ emailAddress = @{ address = $env:BOSS_EMAIL } }
@@ -34,6 +41,7 @@ $mailBody = @{
     saveToSentItems = "false"
 }
 
-# Send email
-Invoke-RestMethod -Headers $headers -Uri "https://graph.microsoft.com/v1.0/users/$env:BOSS_EMAIL/sendMail" -Method Post -Body ($mailBody | ConvertTo-Json -Depth 10)
+Invoke-RestMethod -Headers $headers -Uri "https://graph.microsoft.com/v1.0/sendMail" -Method Post -Body ($mailBody | ConvertTo-Json -Depth 10)
+
+
 
