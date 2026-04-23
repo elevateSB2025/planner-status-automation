@@ -50,5 +50,5 @@ $mailBody = @{
 # The URL must point to a real user/mailbox
 $sendMailUrl = "https://graph.microsoft.com/v1.0/users/$senderEmail/sendMail"
 
-Invoke-RestMethod -Headers $headers -Uri $sendMailUrl -Method Post -Body ($mailBody | ConvertTo-Json -Depth 10)
+Invoke-RestMethod -Headers $headers -Uri $sendMailUrl -Method Post -Body ($mailBody | ConvertTo-Json -Depth 10) -ContentType "application/json"
 
