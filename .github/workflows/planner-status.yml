@@ -11,9 +11,6 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install PowerShell
-        uses: PowerShell/PowerShell@v1
-
       - name: Run Planner Automation
         run: pwsh ./scripts/planner.ps1
         env:
