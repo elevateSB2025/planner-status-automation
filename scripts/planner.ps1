@@ -13,7 +13,9 @@ $headers = @{ Authorization = "Bearer $($token.access_token)" }
 # GET PLANNER TASKS
 # ---------------------------
 
-$planUrl = "https://graph.microsoft.com/v1.0/planner/plans/$($env:PLAN_ID)/tasks"
+if (-not $env:PLAN_ID) { throw "PLAN_ID environment variable is missing!" }
+$planUrl = "https://graph.microsoft.com/v1.0/planner/plans/$($env:PLAN_ID.Trim())/tasks"
+
 $tasks = Invoke-RestMethod -Headers $headers -Uri $planUrl -Method Get
 
 # Build HTML summary
@@ -28,8 +30,7 @@ $html += "</ul>"
 # ---------------------------
 
 # Build sender address: {client_id}@{tenant}.onmicrosoft.com
-$tenantDomain = (Invoke-RestMethod -Uri "https://login.microsoftonline.com/$env:TENANT_ID/v2.0/.well-known/openid-configuration").issuer.Split('/')[3]
-$fromAddress = "$($env:CLIENT_ID)@$tenantDomain"
+$senderEmail = $env:SENDER_EMAIL 
 
 $mailBody = @{
     message = @{
@@ -38,11 +39,7 @@ $mailBody = @{
             contentType = "HTML"
             content     = $html
         }
-        from = @{
-            emailAddress = @{
-                address = $fromAddress
-            }
-        }
+        # Note: 'from' is usually redundant if it matches the URL path
         toRecipients = @(
             @{ emailAddress = @{ address = $env:BOSS_EMAIL } }
         )
@@ -50,6 +47,8 @@ $mailBody = @{
     saveToSentItems = "false"
 }
 
-$sendMailUrl = "https://graph.microsoft.com/v1.0/users/$fromAddress/sendMail"
+# The URL must point to a real user/mailbox
+$sendMailUrl = "https://graph.microsoft.com/v1.0/users/$senderEmail/sendMail"
+
 Invoke-RestMethod -Headers $headers -Uri $sendMailUrl -Method Post -Body ($mailBody | ConvertTo-Json -Depth 10)
 
