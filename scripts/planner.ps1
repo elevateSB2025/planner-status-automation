@@ -9,8 +9,12 @@ $body = @{
 $token = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$env:TENANT_ID/oauth2/v2.0/token" -Body $body
 $headers = @{ Authorization = "Bearer $($token.access_token)" }
 
-# Get Planner tasks
-$tasks = Invoke-RestMethod -Headers $headers -Uri "https://graph.microsoft.com/v1.0/planner/plans/$env:PLAN_ID/tasks"
+# ---------------------------
+# GET PLANNER TASKS
+# ---------------------------
+
+$planUrl = "https://graph.microsoft.com/v1.0/planner/plans/$($env:PLAN_ID)/tasks"
+$tasks = Invoke-RestMethod -Headers $headers -Uri $planUrl -Method Get
 
 # Build HTML summary
 $html = "<h2>Planner Status Update</h2><ul>"
@@ -19,8 +23,13 @@ foreach ($task in $tasks.value) {
 }
 $html += "</ul>"
 
-# Send email FROM the app registration TO your boss
-$fromAddress = "$($env:CLIENT_ID)@$((Invoke-RestMethod -Uri "https://login.microsoftonline.com/$env:TENANT_ID/v2.0/.well-known/openid-configuration").issuer.Split('/')[3])"
+# ---------------------------
+# SEND EMAIL FROM APP REGISTRATION
+# ---------------------------
+
+# Build sender address: {client_id}@{tenant}.onmicrosoft.com
+$tenantDomain = (Invoke-RestMethod -Uri "https://login.microsoftonline.com/$env:TENANT_ID/v2.0/.well-known/openid-configuration").issuer.Split('/')[3]
+$fromAddress = "$($env:CLIENT_ID)@$tenantDomain"
 
 $mailBody = @{
     message = @{
@@ -41,7 +50,6 @@ $mailBody = @{
     saveToSentItems = "false"
 }
 
-Invoke-RestMethod -Headers $headers -Uri "https://graph.microsoft.com/v1.0/sendMail" -Method Post -Body ($mailBody | ConvertTo-Json -Depth 10)
-
-
+$sendMailUrl = "https://graph.microsoft.com/v1.0/users/$fromAddress/sendMail"
+Invoke-RestMethod -Headers $headers -Uri $sendMailUrl -Method Post -Body ($mailBody | ConvertTo-Json -Depth 10)
 
