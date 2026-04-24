@@ -20,3 +20,4 @@ jobs:
           PLAN_ID: ${{ secrets.PLAN_ID }}
           BOSS_EMAIL: ${{ secrets.BOSS_EMAIL }}
           SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
+          GROUP_ID: ${{ secrets.GROUP_ID }}
