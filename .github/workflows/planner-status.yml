@@ -1,18 +1,30 @@
 name: Planner Status Automation
 
 on:
+  schedule:
+     # 13:00 UTC is 9 AM EST (Indiana)
+     - cron: '0 13 * * 1'
   workflow_dispatch:
+    inputs:
+      action_type:
+        description: 'Choose: "sync" (pre-meeting) or "report" (post-meeting)'
+        required: true 
+        default: 'report'
 
+permissions:
+  issues: write
+  contents: read 
+  
 jobs:
-  run-status:
+  planner-automation:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Run Planner Automation
-        run: pwsh ./scripts/planner.ps1
+        shell: pwsh
+        run:  ./scripts/planner.ps1
         env:
           TENANT_ID: ${{ secrets.TENANT_ID }}
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
@@ -20,4 +32,5 @@ jobs:
           PLAN_ID: ${{ secrets.PLAN_ID }}
           BOSS_EMAIL: ${{ secrets.BOSS_EMAIL }}
           SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
-          GROUP_ID: ${{ secrets.GROUP_ID }}
+          GH_TOKEN: ${{ github.token }}
+          RUN_MODE: ${{ github.event.inputs.action_type || 'sync' }}
