@@ -19,11 +19,15 @@ $planUrl = "https://graph.microsoft.com/v1.0/planner/plans/$($env:PLAN_ID.Trim()
 $tasks = Invoke-RestMethod -Headers $headers -Uri $planUrl -Method Get
 
 # Build HTML summary
-$html = "<h2>Planner Status Update</h2><ul>"
-foreach ($task in $tasks.value) {
-    $html += "<li><b>$($task.title)</b> — $($task.percentComplete)% complete</li>"
+if ($tasks.value.Count -eq 0) {
+    $html = "<h2>Planner Status Update</h2><p>No active tasks found in the plan at this time.</p>"
+} else {
+    $html = "<h2>Planner Status Update</h2><ul>"
+    foreach ($task in $tasks.value) {
+        $html += "<li><b>$($task.title)</b> — $($task.percentComplete)% complete</li>"
+    }
+    $html += "</ul>"
 }
-$html += "</ul>"
 
 # ---------------------------
 # SEND EMAIL FROM APP REGISTRATION
