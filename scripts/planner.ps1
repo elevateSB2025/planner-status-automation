@@ -17,15 +17,15 @@ $tasks = Invoke-RestMethod -Headers $headers -Uri $planUrl -Method Get
 $reportItems = @()
 
 foreach ($task in $tasks.value) {
-    $pId = $task.id
+    $plannerId = $task.id
     $title = $task.title
     
     # Check for existing GitHub Issue using the Planner ID as a label or search term
-    $issue = gh issue list --search "$pId" --json number,title | ConvertFrom-Json | Select-Object -First 1
+    $issue = gh issue list --search "$plannerId" --json number,title | ConvertFrom-Json | Select-Object -First 1
     
     if (-not $issue) {
         # STEP 1: SYNC (Create issue if missing)
-        $issueNumber = gh issue create --title "$title" --body "PlannerID: $pId `n---`nUpdates:"
+        $issueNumber = gh issue create --title "$title" --body "PlannerID: $plannerId `n---`nUpdates:"
         Write-Host "Created new issue for task: $title"
     } else {
         $issueNumber = $issue.number
