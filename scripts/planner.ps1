@@ -8,27 +8,24 @@ $body = @{
 $token = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$env:TENANT_ID/oauth2/v2.0/token" -Body $body
 $headers = @{ Authorization = "Bearer $($token.access_token)" }
 
-# 1. Get YOUR Graph User ID (needed to filter assignments)
-$myEmail = "Steven.Brownlow@letselevate.tech"
-$userResp = Invoke-RestMethod -Headers $headers -Uri "https://graph.microsoft.com/v1.0/users/$myEmail"
-$myId = $userResp.id
-
-# 2. Get Planner Tasks
+# --- Get Planner Tasks ---
 $targetPlanId = $env:PLAN_ID.Trim()
 $planUrl = "https://graph.microsoft.com/v1.0/planner/plans/$targetPlanId/tasks"
-$response = Invoke-RestMethod -Headers $headers -Uri $planUrl -Method Get
 
-# 3. Filter for: (Not Complete) AND (Assigned to YOU)
-$myTasks = $response.value | Where-Object { 
-    $_.percentComplete -lt 100 -and 
-    $_.assignments."$myId" -ne $null 
+try {
+    $response = Invoke-RestMethod -Headers $headers -Uri $planUrl -Method Get
+    # FILTER: Just get everything that isn't 100% complete
+    $activeTasks = $response.value | Where-Object { $_.percentComplete -lt 100 }
+}
+catch {
+    Write-Error "Failed to fetch tasks. Ensure 'Group.Read.All' is granted in Entra ID."
+    exit 1
 }
 
 # --- Process Tasks ---
 $reportItems = @()
 
-foreach ($task in $myTasks) {
-    # Use a safe variable name (not $PID)
+foreach ($task in $activeTasks) {
     $currentTaskId = $task.id
     $title = $task.title
     
@@ -36,16 +33,17 @@ foreach ($task in $myTasks) {
     $issue = gh issue list --search "$currentTaskId" --json number,title | ConvertFrom-Json | Select-Object -First 1
     
     if (-not $issue) {
+        # Create issue if missing
         $issueNumber = gh issue create --title "$title" --body "PlannerID: $currentTaskId `n---`nUpdates:"
-        Write-Host "Created new issue for: $title"
+        Write-Host "Created issue for: $title"
     } else {
         $issueNumber = $issue.number
     }
 
-    # Get latest comment
+    # Get latest comment for the report
     $issueData = gh issue view $issueNumber --json comments | ConvertFrom-Json
     $latestComment = $issueData.comments | Select-Object -Last 1
-    $note = if ($latestComment) { $latestComment.body } else { "No updates recorded in meeting." }
+    $note = if ($latestComment) { $latestComment.body } else { "No updates recorded." }
 
     $reportItems += [PSCustomObject]@{
         Title    = $title
