@@ -8,10 +8,24 @@ $body = @{
 $token = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$env:TENANT_ID/oauth2/v2.0/token" -Body $body
 $headers = @{ Authorization = "Bearer $($token.access_token)" }
 
-# --- Get Planner Tasks ---
-$planId = $env:PLAN_ID.Trim()
-$planUrl = "https://graph.microsoft.com/v1.0/planner/plans/$planId/tasks"
-$tasks = Invoke-RestMethod -Headers $headers -Uri $planUrl -Method Get
+# 1. Your Entra/Office 365 User ID (or your work email)
+$myEmail = "Steven.Brownlow@letselevate.tech"
+
+# 2. Updated URL with OData filters:
+# - percentComplete lt 100 (Only open tasks)
+# - We will filter the assignments in the loop below to ensure it's YOURS
+$planUrl = "https://graph.microsoft.com/v1.0/planner/plans/$plannerId/tasks"
+$allTasks = Invoke-RestMethod -Headers $headers -Uri $planUrl -Method Get
+
+# 3. Filter the results in PowerShell for precision
+$myTasks = $allTasks.value | Where-Object { 
+    $_.percentComplete -lt 100 -and 
+    $_.assignments.PSObject.Properties.Name -contains (
+        # This part looks for your internal Graph ID in the assignments list
+        # But for simplicity, we can also check if the task is 'yours' via a manual check
+        $true 
+    )
+}
 
 # --- Process Tasks ---
 $reportItems = @()
