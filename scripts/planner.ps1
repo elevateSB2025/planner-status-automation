@@ -1,4 +1,4 @@
-# --- Authentication (Existing Logic) ---
+# --- Authentication ---
 $body = @{
     client_id     = $env:CLIENT_ID
     scope         = "https://graph.microsoft.com/.default"
@@ -8,49 +8,45 @@ $body = @{
 $token = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$env:TENANT_ID/oauth2/v2.0/token" -Body $body
 $headers = @{ Authorization = "Bearer $($token.access_token)" }
 
-# 1. Your Entra/Office 365 User ID (or your work email)
+# 1. Get YOUR Graph User ID (needed to filter assignments)
 $myEmail = "Steven.Brownlow@letselevate.tech"
+$userResp = Invoke-RestMethod -Headers $headers -Uri "https://graph.microsoft.com/v1.0/users/$myEmail"
+$myId = $userResp.id
 
-# 2. Updated URL with OData filters:
-# - percentComplete lt 100 (Only open tasks)
-# - We will filter the assignments in the loop below to ensure it's YOURS
-$planUrl = "https://graph.microsoft.com/v1.0/planner/plans/$plannerId/tasks"
-$allTasks = Invoke-RestMethod -Headers $headers -Uri $planUrl -Method Get
+# 2. Get Planner Tasks
+$targetPlanId = $env:PLAN_ID.Trim()
+$planUrl = "https://graph.microsoft.com/v1.0/planner/plans/$targetPlanId/tasks"
+$response = Invoke-RestMethod -Headers $headers -Uri $planUrl -Method Get
 
-# 3. Filter the results in PowerShell for precision
-$myTasks = $allTasks.value | Where-Object { 
+# 3. Filter for: (Not Complete) AND (Assigned to YOU)
+$myTasks = $response.value | Where-Object { 
     $_.percentComplete -lt 100 -and 
-    $_.assignments.PSObject.Properties.Name -contains (
-        # This part looks for your internal Graph ID in the assignments list
-        # But for simplicity, we can also check if the task is 'yours' via a manual check
-        $true 
-    )
+    $_.assignments."$myId" -ne $null 
 }
 
 # --- Process Tasks ---
 $reportItems = @()
 
-foreach ($task in $tasks.value) {
-    $plannerId = $task.id
+foreach ($task in $myTasks) {
+    # Use a safe variable name (not $PID)
+    $currentTaskId = $task.id
     $title = $task.title
     
-    # Check for existing GitHub Issue using the Planner ID as a label or search term
-    $issue = gh issue list --search "$plannerId" --json number,title | ConvertFrom-Json | Select-Object -First 1
+    # Check for existing GitHub Issue
+    $issue = gh issue list --search "$currentTaskId" --json number,title | ConvertFrom-Json | Select-Object -First 1
     
     if (-not $issue) {
-        # STEP 1: SYNC (Create issue if missing)
-        $issueNumber = gh issue create --title "$title" --body "PlannerID: $plannerId `n---`nUpdates:"
-        Write-Host "Created new issue for task: $title"
+        $issueNumber = gh issue create --title "$title" --body "PlannerID: $currentTaskId `n---`nUpdates:"
+        Write-Host "Created new issue for: $title"
     } else {
         $issueNumber = $issue.number
     }
 
-    # STEP 2: GET UPDATES (Grab latest comment)
+    # Get latest comment
     $issueData = gh issue view $issueNumber --json comments | ConvertFrom-Json
     $latestComment = $issueData.comments | Select-Object -Last 1
     $note = if ($latestComment) { $latestComment.body } else { "No updates recorded in meeting." }
 
-    # Store for the email
     $reportItems += [PSCustomObject]@{
         Title    = $title
         Percent  = $task.percentComplete
@@ -58,8 +54,8 @@ foreach ($task in $tasks.value) {
     }
 }
 
-# --- Post-Meeting Report (Email Logic) ---
-if ($env:RUN_MODE -eq "report") {
+# --- Post-Meeting Report ---
+if ($env:RUN_MODE -eq "report" -and $reportItems.Count -gt 0) {
     $html = "<h2>Monday Standup Report: $(Get-Date -Format 'MM/dd/yyyy')</h2>"
     foreach ($item in $reportItems) {
         $html += "<p><b>$($item.Title)</b> ($($item.Percent)% complete)<br/>"
